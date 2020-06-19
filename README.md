@@ -1,5 +1,5 @@
 
-P2Rank 
+P2Rank
 ======
 Ligand-binding site prediction based on machine learning.
 
@@ -13,7 +13,7 @@ Ligand-binding site prediction based on machine learning.
 
 ### Description
 
-P2Rank is a stand-alone command line program that predicts ligand-binding pockets from a protein structure. It achieves high prediction success rates without relying on an external software for computation of complex features or on a database of known protein-ligand templates. 
+P2Rank is a stand-alone command line program that predicts ligand-binding pockets from a protein structure. It achieves high prediction success rates without relying on an external software for computation of complex features or on a database of known protein-ligand templates.
 
 ### Requirements
 
@@ -31,7 +31,7 @@ P2Rank requires no installation. Binary packages can be downloaded from the proj
 ### Usage
 
 <pre>
-<b>prank</b> predict -f test_data/1fbl.pdb         # predict pockets on a single pdb file 
+<b>prank</b> predict -f test_data/1fbl.pdb         # predict pockets on a single pdb file
 </pre>  
 
 See more usage examples below...
@@ -44,7 +44,7 @@ To compile P2Rank you need Gradle (https://gradle.org/). Build with `./make.sh` 
 
 P2Rank makes predictions by scoring and clustering points on the protein's solvent accessible surface. Ligandability score of individual points is determined by a machine learning based model trained on the dataset of known protein-ligand complexes. For more details see slides and publications.
 
-Slides: http://bit.ly/p2rank_slides 
+Slides: http://bit.ly/p2rank_slides
 
 ### Publications
 
@@ -53,7 +53,7 @@ If you use P2Rank, please cite relevant papers:
 * [Software article](https://doi.org/10.1186/s13321-018-0285-8) in JChem about P2Rank pocket prediction tool  
  Krivak R, Hoksza D. *P2Rank: machine learning based tool for rapid and accurate prediction of ligand binding sites from protein structure.* Journal of Cheminformatics. 2018 Aug.
 * [Web-server article](https://doi.org/10.1093/nar/gkz424) in NAR about the web interface accessible at [prankweb.cz](http://prankweb.cz)  
- Jendele L, Krivak R, Skoda P, Novotny M, Hoksza D. *PrankWeb: a web server for ligand binding site prediction and visualization.* Nucleic Acids Research, Volume 47, Issue W1, 02 July 2019, Pages W345–W349 
+ Jendele L, Krivak R, Skoda P, Novotny M, Hoksza D. *PrankWeb: a web server for ligand binding site prediction and visualization.* Nucleic Acids Research, Volume 47, Issue W1, 02 July 2019, Pages W345–W349
 * [Conference paper](https://doi.org/10.1007/978-3-319-21233-3_4) inroducing P2Rank prediction algorithm  
  Krivak R, Hoksza D. *P2RANK: Knowledge-Based Ligand Binding Site Prediction Using Aggregated Local Features.* InInternational Conference on Algorithms for Computational Biology 2015 Aug 4 (pp. 41-52). Springer
 * [Research article](https://doi.org/10.1186/s13321-015-0059-5) in JChem about PRANK rescoring algorithm  
@@ -82,7 +82,7 @@ prank predict -f test_data/1fbl.pdb.gz            # run on single gzipped pdb fi
 
 prank predict -threads 8          test.ds         # specify no. of working threads for parallel processing
 prank predict -o output_here      test.ds         # explicitly specify output directory
-prank predict -c predict2.groovy  test.ds         # specify configuration file (predict2.groovy uses 
+prank predict -c predict2.groovy  test.ds         # specify configuration file (predict2.groovy uses
                                                     different prediction model and combination of parameters)
 ~~~
 
@@ -94,14 +94,14 @@ prank eval-predict -f test_data/1fbl.pdb
 prank eval-predict test.ds
 ~~~
 
-### Prediction output 
+### Prediction output
 
-   For each file in the dataset program produces a CSV file in the output directory named 
-   `<pdb_file_name>_predictions.csv`, which contains an ordered list of predicted pockets, their scores, coordinates 
+   For each file in the dataset program produces a CSV file in the output directory named
+   `<pdb_file_name>_predictions.csv`, which contains an ordered list of predicted pockets, their scores, coordinates
    of their centroids and list of PDBSerials of adjacent amino acids and solvent exposed atoms.
 
    If coordinates of SAS points that belong to predicted pockets are needed they can be found
-   in `visualizations/data/<pdb_file_name>_points.pdb`. There "Residue sequence number" (23-26) of HETATM record 
+   in `visualizations/data/<pdb_file_name>_points.pdb`. There "Residue sequence number" (23-26) of HETATM record
    corresponds to the rank of corresponding pocket (points with value 0 do not belong to any pocket).
 
 ### Configuration
@@ -123,8 +123,8 @@ prank predict -c example.groovy -seed 151 -threads 8  test.ds
 
 ### Rescoring (PRANK algorithm)
 
-In addition to predicting new ligand binding sites, 
-P2Rank is also able to rescore pockets predicted by other methods 
+In addition to predicting new ligand binding sites,
+P2Rank is also able to rescore pockets predicted by other methods
 (Fpocket, ConCavity, SiteHound, MetaPocket2, LISE and DeepSite are supported at the moment).
 
 ~~~
@@ -148,12 +148,12 @@ Fpocket is written in C and it is based on a different geometric algorithm.
 Some practical differences:
 
 * Fpocket
-    - has much smaller memory footprint 
+    - has much smaller memory footprint
     - runs faster when executed on a single protein
     - produces a high number of less relevant pockets (and since the default scoring function isn't very effective the most relevant pockets often doesn't get to the top)
-    - contains MDpocket algorithm for pocket predictions from molecular trajectories 
+    - contains MDpocket algorithm for pocket predictions from molecular trajectories
     - still better documented
-* P2Rank 
+* P2Rank
     - achieves significantly better identification success rates when considering top-ranked pockets
     - produces smaller number of more relevant pockets
     - speed:
@@ -176,4 +176,4 @@ This program builds upon software written by other people, either through librar
 
 ## Contributing
 
-We welcome any bug reports, enhancement requests, and other contributions. To submit a bug report or enhancement request, please use the [GitHub issues tracker](https://github.com/rdk/p2rank/issues). For more substantial contributions, please fork this repo, push your changes to your fork, and submit a pull request with a good commit message. 
+We welcome any bug reports, enhancement requests, and other contributions. To submit a bug report or enhancement request, please use the [GitHub issues tracker](https://github.com/rdk/p2rank/issues). For more substantial contributions, please fork this repo, push your changes to your fork, and submit a pull request with a good commit message.
