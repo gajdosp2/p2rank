@@ -32,9 +32,9 @@ import cz.siret.prank.program.params.Params
 
 
     classifier="FasterForest"
-    rf_trees = 100
-    rf_bagsize = 100
-    rf_depth = 30
+    rf_trees = 50
+    rf_bagsize = 50
+    rf_depth = 20
 
     cache_datasets = false
     clear_sec_caches = false
