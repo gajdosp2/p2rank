@@ -98,14 +98,7 @@ prank eval-predict test.ds
 
 ### Prediction output
 
-<<<<<<< HEAD
-   For each file in the dataset program produces a CSV file in the output directory named
-   `<pdb_file_name>_predictions.csv`, which contains an ordered list of predicted pockets, their scores, coordinates
-   of their centroids and list of PDBSerials of adjacent amino acids and solvent exposed atoms.
 
-   If coordinates of SAS points that belong to predicted pockets are needed they can be found
-   in `visualizations/data/<pdb_file_name>_points.pdb`. There "Residue sequence number" (23-26) of HETATM record
-=======
    For each file in the dataset P2Rank produces produces several output files:
    * `<pdb_file_name>_predictions.csv`: contains an ordered list of predicted pockets, their scores, coordinates
    of their centers together with a list of adjacent residues and a list of adjacent protein surface atoms
@@ -115,8 +108,7 @@ prank eval-predict test.ds
 
    If coordinates of SAS points that belong to predicted pockets are needed, they can be found
    in `visualizations/data/<pdb_file_name>_points.pdb`. There "Residue sequence number" (23-26) of HETATM record
->>>>>>> remotes/upstream/dna-rdk
-   corresponds to the rank of corresponding pocket (points with value 0 do not belong to any pocket).
+
 
 ### Configuration
 
