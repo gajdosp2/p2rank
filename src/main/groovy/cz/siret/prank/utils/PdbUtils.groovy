@@ -1,17 +1,16 @@
 package cz.siret.prank.utils
 
+
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
-import org.biojava.nbio.structure.Atom
-import org.biojava.nbio.structure.Element
-import org.biojava.nbio.structure.Group
-import org.biojava.nbio.structure.Structure
+import org.biojava.nbio.structure.*
 import org.biojava.nbio.structure.io.FileParsingParameters
 import org.biojava.nbio.structure.io.PDBFileParser
 import org.biojava.nbio.structure.io.PDBFileReader
 import org.biojava.nbio.structure.io.mmcif.ChemCompGroupFactory
 import org.biojava.nbio.structure.io.mmcif.ReducedChemCompProvider
 
+import static cz.siret.prank.geom.Struct.getAuthorId
 
 /**
  * BioJava PDB utility methods.
@@ -22,10 +21,8 @@ class PdbUtils {
 
     private static final int BUFFER_SIZE = 5*1024*1024;
 
-    static final FileParsingParameters PARSING_PARAMS = new FileParsingParameters();
+    static final FileParsingParameters PARSING_PARAMS = new FileParsingParameters()
     static {
-        ChemCompGroupFactory.setChemCompProvider(new ReducedChemCompProvider()); // does not download any chem comp definitions (by default BioJava does)
-
         PARSING_PARAMS.setAlignSeqRes(false);  // should the ATOM and SEQRES residues be aligned when creating the internal data model?
         PARSING_PARAMS.setParseSecStruc(false);  // should secondary structure getByID parsed from the file
 
@@ -33,7 +30,20 @@ class PdbUtils {
         PARSING_PARAMS.setCreateAtomCharges(false)
         PARSING_PARAMS.setParseBioAssembly(false)
 
+        disableBiojavaFetching()
         //PARSING_PARAMS.setLoadChemCompInfo(Params.inst.biojava_load_chem_info); // info about modified amino acid residues, not available in BioJava4
+    }
+
+    /**
+     * Tries to disable BioJava fetching external information since it leads to inconsistent protein parsing.
+     */
+    private static void disableBiojavaFetching() {
+        ChemCompGroupFactory.setChemCompProvider(new ReducedChemCompProvider()) 
+    }
+
+    private static FileParsingParameters getParsingParams() {
+        disableBiojavaFetching()
+        return PARSING_PARAMS
     }
 
     static Structure loadFromFile(String file) {
@@ -46,13 +56,13 @@ class PdbUtils {
         if (file.endsWith(".pdb")) {
             // load with buffer
             PDBFileParser pdbpars = new PDBFileParser();
-            pdbpars.setFileParsingParameters(PARSING_PARAMS);
+            pdbpars.setFileParsingParameters(parsingParams);
             InputStream inStream = new BufferedInputStream(new FileInputStream(file), BUFFER_SIZE)
             struct = pdbpars.parsePDBFile(inStream)
         } else {
             // for tar.gz files
             PDBFileReader pdbReader = new PDBFileReader()
-            pdbReader.setFileParsingParameters(PARSING_PARAMS)
+            pdbReader.setFileParsingParameters(parsingParams)
             struct = pdbReader.getStructure(file)
         }
 
@@ -61,7 +71,7 @@ class PdbUtils {
 
     static Structure loadFromString(String pdbText)  {
         PDBFileParser pdbpars = new PDBFileParser();
-        pdbpars.setFileParsingParameters(PARSING_PARAMS);
+        pdbpars.setFileParsingParameters(parsingParams);
 
         BufferedReader br = new BufferedReader(new StringReader(pdbText))
 
@@ -155,6 +165,108 @@ class PdbUtils {
                 trySetElement(a, a.name.substring(0,1))
             }
         }
+    }
+
+
+
+    /**
+     * The code is based on StructureTools.getReducedStructure(String, String) from BioJava 5.3.0
+     *
+     * Note: has to be revised after upgrade to new BioJava versions!
+     */
+    static final Structure reduceStructureToModel(Structure s, int modelId) throws StructureException {
+
+        Structure newS = new StructureImpl();
+        newS.setPDBCode(s.getPDBCode());
+        newS.setPDBHeader(s.getPDBHeader());
+        newS.setName(s.getName());
+        newS.setSSBonds(s.getSSBonds());
+        newS.setDBRefs(s.getDBRefs());
+        newS.setSites(s.getSites());
+        newS.setBiologicalAssembly(s.isBiologicalAssembly());
+        newS.setEntityInfos(s.getEntityInfos());
+        newS.setSSBonds(s.getSSBonds());
+        newS.setSites(s.getSites());
+
+        // only get model modelId
+        List<Chain> model = s.getModel(modelId);
+        for (Chain c : model) {
+            newS.addChain(c);
+        }
+        return newS;
+    }
+
+
+//    private static shouldCopyChain(Chain ch, List<String> chainIds) {
+//        if (ch == null) return false
+//        if (ch.entityType == EntityType.POLYMER && chainIds.contains(ch.id)) return true
+//        if (ch.entityType == EntityType.NONPOLYMER) return true
+//
+//        ch.atomGroups[0].getChain().
+//
+//        return false
+//    }
+
+    private static shouldCopyChain(Chain ch, List<String> chainIds) {
+        return chainIds.contains(getAuthorId(ch))
+    }
+
+    static List<Chain> getChanisForAuthorId(Structure s, String authorId) {
+        List<Chain> res = new ArrayList<>()
+        
+        Chain polyChian = s.getPolyChainByPDB(authorId)
+        if (polyChian != null) {
+            res.add polyChian
+        }
+        res.addAll (s.getNonPolyChainsByPDB(authorId) ?: [])
+
+        return res
+    }
+
+    /**
+     * Reduces the structure to specified chains (and model 0 in case of multi-model structures).
+     *
+     * The code is based on StructureTools.getReducedStructure(String, String) from BioJava 5.3.0
+     *
+     * Note: has to be revised after upgrade to new BioJava versions!
+     *
+     * @param struct
+     * @param chainIds
+     * @return
+     */
+    static Structure getReducedStructure(Structure s, List<String> chainIds) {
+        // since we deal here with structure alignments,
+        // only use Model 1...
+
+        ///// copied from StructureTools
+        Structure newS = new StructureImpl();
+        newS.setPDBCode(s.getPDBCode());
+        newS.setPDBHeader(s.getPDBHeader());
+        newS.setName(s.getName());
+        newS.setSSBonds(s.getSSBonds());
+        newS.setDBRefs(s.getDBRefs());
+        newS.setSites(s.getSites());
+        newS.setBiologicalAssembly(s.isBiologicalAssembly());
+        newS.setEntityInfos(s.getEntityInfos());
+        newS.setSSBonds(s.getSSBonds());
+        newS.setSites(s.getSites());
+        ///// end copied
+
+        for (Chain ch : s.chains) {
+            ///// end copied
+            if (shouldCopyChain(ch, chainIds)) {
+                newS.addChain(ch)
+            }
+        }
+
+        //for (String authorId : chainIds) {
+        //    getChanisForAuthorId(s, authorId).each {
+        //        newS.addChain(it)
+        //    }
+        //}
+
+
+        return newS;
     }
 
 }

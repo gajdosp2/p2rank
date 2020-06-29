@@ -1,9 +1,7 @@
 import cz.siret.prank.program.params.Params
 
 /**
- * This configiration file is setting technical parameterss ideal for training and evaluating new models.
- *
- * In other poarameters of the algorithm should stay as close as possible do default config.
+ * Config file for testing AA index
  */
 (params as Params).with {
 
@@ -35,19 +33,15 @@ import cz.siret.prank.program.params.Params
     classifier="FasterForest"
 
     seed = 42
+
     loop = 10
 
+    predictions = true
+
+    crossval_threads = 5
 
 
-    out_prefix_date = false
 
-    crossval_threads = 1
-
-    cache_datasets = true
-
-    clear_prim_caches = false
-
-    clear_sec_caches = false
 
 
     /**
@@ -56,11 +50,43 @@ import cz.siret.prank.program.params.Params
      */
     feature_importances = false
 
-    output_only_stats = true
+    stats_collect_predictions = false
+
+
+    /**
+     * collect negatives just from decoy pockets found by other method
+     * (alternatively take negative points from all of the protein's surface)
+     */
+    sample_negatives_from_decoys = false
+
+    atom_table_feat_keep_sgn = true
+
+    atom_table_features = ["ap5sasaValids","ap5sasaInvalids","apRawValids","apRawInvalids","atomicHydrophobicity"]
+
+    extra_features = ["chem","volsite","protrusion","bfactor"]
+
+    residue_table_features = ["RAx"]
+
+    average_feat_vectors = true
+
+    balance_class_weights = true
+
+    target_class_weight_ratio = 0.055
+    
+
+    // technical
+
+    cache_datasets = true
+
+    clear_sec_caches = false
+
+    clear_prim_caches = false
 
     log_cases = true
 
-    log_to_console = false
+    output_only_stats = true
+
+    log_to_console = true
 
     log_level = "WARN"
 
@@ -69,6 +95,8 @@ import cz.siret.prank.program.params.Params
     ploop_delete_runs = true
 
     zip_log_file = true
+
+    out_prefix_date = true
 
     feat_aa_properties = ['SUYM030101',
                           'CASG920101',
@@ -92,5 +120,4 @@ import cz.siret.prank.program.params.Params
                           'WOLS870102',
                           'HOPT810101',
                           'RICJ880111']
-
 }

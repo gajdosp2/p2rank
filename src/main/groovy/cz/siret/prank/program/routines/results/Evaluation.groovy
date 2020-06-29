@@ -17,6 +17,7 @@ import cz.siret.prank.prediction.pockets.criteria.DSWO
 import cz.siret.prank.prediction.pockets.criteria.PocketCriterium
 import groovy.util.logging.Slf4j
 import org.apache.commons.lang3.StringUtils
+import org.codehaus.groovy.runtime.StackTraceUtils
 
 import static cz.siret.prank.geom.Atoms.intersection
 import static cz.siret.prank.geom.Atoms.union
@@ -142,10 +143,8 @@ class Evaluation implements Parametrized {
         protRow.atoms = protein.allAtoms.count
         protRow.protAtoms = protein.proteinAtoms.count
         protRow.exposedAtoms = pair.prediction.protein.exposedAtoms.count
-        // TODO count only model 1
-        // TODO count only protein chains
-        protRow.chains = protein.structure.chains.size()
-        protRow.chainNames = protein.structure.chains.collect {it.chainID}.join(" ")
+        protRow.chains = protein.residueChains.size()
+        protRow.chainNames = protein.residueChains.collect {it.authorId}.join(" ")
         protRow.ligands = pair.ligandCount
         protRow.pockets = pair.prediction.pocketCount
         protRow.ligNames = protein.ligands.collect { "$it.name($it.size)" }.join(" ")
@@ -387,7 +386,7 @@ class Evaluation implements Parametrized {
         List<List<Double>> res = new ArrayList<>()
 
         if (ligandCount==0) {
-            log.error "no ligands!"
+            log.warn "no ligands loaded for calculating success rates!"
         }
 
         for (int assNum=0; assNum!=criteria.size(); assNum++) {

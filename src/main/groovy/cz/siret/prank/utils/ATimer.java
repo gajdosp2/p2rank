@@ -32,7 +32,7 @@ public class ATimer {
     }
 
     public double getMinutes() {
-        return getTimeSec() / 60;
+        return (double)getTimeSec() / 60;
     }
 
     public String getFormatted() {
@@ -41,6 +41,12 @@ public class ATimer {
 
     public String toString() {
         return getFormatted();
+    }
+
+//===============================================================================================//
+
+    public static String formatTime(long ms) {
+        return new Duration(ms).toString();
     }
 
     public static class Duration {

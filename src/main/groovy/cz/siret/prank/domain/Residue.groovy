@@ -16,6 +16,9 @@ import org.biojava.nbio.structure.secstruc.SecStrucType
 import javax.annotation.Nonnull
 import javax.annotation.Nullable
 
+import static cz.siret.prank.geom.Struct.getAuthorId
+import static cz.siret.prank.geom.Struct.getMmcifId
+
 /**
  * Represents protein amino acid residue
  */
@@ -57,20 +60,30 @@ class Residue {
         this.key = new Key(group.residueNumber)
     }
 
+    /**
+     * note: in biojava UNK Groups sometimes implement AminoAcid and sometimes HetatomImpl!
+     */
     static Residue fromGroup(Group group) {
-        if (!(Struct.isAminoAcidGroup(group) || group.getPDBName().startsWith("UNK")))
-            throw new PrankException("Trying to create residue from non amino acid group: " + group)
-
-//        if (! group instanceof AminoAcid)
-//            throw new PrankException("Trying to create residue from group that is not of type AminoAcid: " + group)
+        // some modified residues are included as HETATM, so we cannot rely on checks like that:
+        // also UNK Groups sometimes implement AminoAcid and sometimes HetatomImpl!
+        
+        //if (!(group.isAminoAcid() || group.getPDBName().startsWith("UNK")))
+        //    throw new PrankException("Trying to create residue from non amino acid group: " + group)
 
         return new Residue(group)
     }
 
 //===========================================================================================================//
 
+    /**
+     * note: in biojava UNK Groups sometimes implement AminoAcid and sometimes HetatomImpl!
+     */
     AminoAcid getAminoAcid() {
-        return (AminoAcid)group
+        if (group instanceof  AminoAcid) {
+            return (AminoAcid)group
+        } else {
+            return null
+        }
     }
 
     Key getKey() {
@@ -78,8 +91,13 @@ class Residue {
     }
     
     @Nullable
-    String getChainId() {
-        group.chainId
+    String getChainMmcifId() {
+        getMmcifId(group?.chain)
+    }
+
+    @Nullable
+    String getChainAuthorId() {
+        getAuthorId(group?.chain)
     }
 
     ResidueNumber getResidueNumber() {
@@ -87,6 +105,11 @@ class Residue {
     }
 
 //===========================================================================================================//
+
+    @Nonnull
+    Group getGroup() {
+        return group
+    }
 
     Atoms getAtoms() {
         if (atoms==null) {

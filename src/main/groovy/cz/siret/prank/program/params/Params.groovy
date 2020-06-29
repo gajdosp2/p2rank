@@ -8,7 +8,15 @@ import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 
 /**
- * global program parameters
+ * Holds all global parameters of the program.
+ *
+ * This file is also main source of parameter description/documenmtation.
+ *
+ * Parameter annotations:
+ * @RuntimeParam            ... Parameters related to program execution.
+ * @ModelParam              ... Actual parameters of the algorithm, related to extracting features and calculating results.
+ *                              It is important that those parameters stay the same when training a model and then using it for inference.
+ * @ModelParam // training  ... Model params used only in training phase but not during inference.
  */
 @CompileStatic
 @Slf4j
@@ -28,14 +36,14 @@ class Params {
     String dataset_base_dir = null
 
     /**
-     * all output of the program will be stored in subdirectores of this directory
+     * all output of the program will be stored in subdirectories of this directory
      * (set absolute path or path relative to install dir, null defaults to working dir)
      */
     @RuntimeParam
     String output_base_dir = null
 
     /**
-     * serialized model
+     * Location of pre-trained serialized model.
      * (set path relative to install_dir/models/)
      */
     @RuntimeParam
@@ -60,17 +68,23 @@ class Params {
     int threads = Runtime.getRuntime().availableProcessors() + 1
 
     /**
-     *  Number for threads for generating R plots
+     * Number for threads used for generating R plots
      */
     @RuntimeParam
     int r_threads = 2
+
+    /**
+     * Generate standard deviation plot for each statistic when generating R plots
+     */
+    @RuntimeParam
+    boolean r_plot_stddevs = false
 
     /**
      * Number of cross-validation folds to work on simultaneously.
      * (Multiplies required memory)
      */
     @RuntimeParam
-    int crossval_threads = 1 // Math.min(5, Runtime.getRuntime().availableProcessors())
+    int crossval_threads = 1
 
     /**
      * defines witch atoms around the ligand are considered to be part of the pocket
@@ -92,13 +106,13 @@ class Params {
      * see atomic-properties.csv
      */
     @ModelParam
-    List<String> atom_table_features = ["apRawValids","apRawInvalids","atomicHydrophobicity"] // "ap5sasaValids","ap5sasaInvalids"
+    List<String> atom_table_features = ["apRawValids","apRawInvalids","atomicHydrophobicity"]
 
     /**
      * List of features that come directly from residue table
      */
     @ModelParam
-    List<String> residue_table_features = [] // ['aa5fact1','aa5fact2','aa5fact3','aa5fact4','aa5fact5']
+    List<String> residue_table_features = []
 
     /**
      * Exponent applied to all atom table features
@@ -314,7 +328,7 @@ class Params {
     double ligand_induced_volume_cutoff = 2.5
 
     /**
-     * points between [positive_point_ligand_distance,neutral_point_margin] will be left out form training
+     * points between (positive_point_ligand_distance, positive_point_ligand_distance + neutral_point_margin) will not be considered positives or negatives and will be left out form training
      */
     @ModelParam // training
     double neutral_points_margin = 5.5
@@ -365,7 +379,8 @@ class Params {
     double solvent_radius = 1.6
 
     /**
-     * SAS tessellation (~density) used in prediction step
+     * SAS tessellation (~density) used in prediction step.
+     * Higher tessellation = higher density (+1 ~~ x4 points)
      */
     @ModelParam
     int tessellation = 2
@@ -592,6 +607,14 @@ class Params {
      */
     @RuntimeParam
     boolean predict_residues = false
+
+    /**
+     * If true, assign class to SAS points in training dataset based on proximity to the ligand.
+     * If false, assign class based the class of nearest residue.
+     * Distinction only makes sense running in residue prediction mode (predict_residues = true).
+     */
+    @RuntimeParam
+    boolean ligand_derived_point_labeling = true
 
     /**
      * produce residue labeling file (in predict mode)
@@ -840,7 +863,7 @@ class Params {
     /**
      * Collect predictions for all points in the dataset.
      * Allows calculation of AUC and AUPRC classifier statistics but consumes a lot of memory.
-     * (>1GB for holo4k dataset with tesselation=2)
+     * (>1GB for holo4k dataset with tessellation=2)
      */
     @RuntimeParam
     boolean stats_collect_predictions = false
@@ -897,7 +920,7 @@ class Params {
      * selected sub-features in aa index feature
      */
     @ModelParam
-    List<String> feat_aa_properties = null
+    List<String> feat_aa_properties = []
 
     /**
      * Hyperparameter optimizer implementation (so far only "spearmint")
@@ -976,7 +999,7 @@ class Params {
     String zscoretp_res_transformer = "residue/p2rank_default_zscore.json"
 
     /**
-     * Path to json file that contains parameters of transformation of raw score to "probability that residue with given score is true residue".
+     * Path to json file that contains parameters of transformation of raw score to "probability that residue with given score is true (binding) residue".
      * Use path relative to distro/models/score.
      */
     @RuntimeParam
@@ -985,9 +1008,10 @@ class Params {
     /**
      * List of pocket score transformers that should be trained (i.e. fitted / inferred) during predict-eval.
      * Transformers are tied to the output distribution of the model (and its parametrization) so new transformers should be trained for every released model.
+     * Examples: "ZscoreTpTransformer","ProbabilityScoreTransformer"
      */
     @RuntimeParam
-    List<String> train_score_transformers = [] // ["ZscoreTpTransformer","ProbabilityScoreTransformer"]
+    List<String> train_score_transformers = [] 
 
     /**
      * Train residue score transformers on a dataset during predict-eval.
@@ -996,31 +1020,25 @@ class Params {
     @RuntimeParam
     boolean train_score_transformers_for_residues = false
 
-    /**
-     * Reduce loaded protein structures to chains declared in dataset file (in optional chains column).
-     * If false all protein chains will be loaded.
-     */
-    @RuntimeParam
-    boolean load_only_specified_chains = false
 
     /**
      * In hyper-parameter optimization (ploop and hopt commands) train model only once in the beginning
-     * (makes sense if optimized hyper-parameters do't influence training and feature extraction)
+     * (makes sense if optimized hyper-parameters don't influence training and feature extraction)
      */
     @RuntimeParam
     boolean hopt_train_only_once = false
 
     /**
-     * Parameter of propensity feature.
-     * directory in program resources to take peptide propensities from
-     * (resources/tables/peptides/$var/...)
+     * Identifies set of pre-calculated propensity tables for duplets/triplets features.
+     *
+     * Value should be a directory in program resources to take peptide propensities from
+     * (resources/tables/propensities/$var/...)
      * Available: SprintT1070, SprintA870
      *
-     * TODO: rename param and make it general, not only specific to peptide binding
      * TODO: move to dist dir on release
      */
     @ModelParam
-    String pept_propensities_set = "SprintT1070"
+    String feat_propensity_tables = "SprintT1070"
 
 
     /**
@@ -1035,6 +1053,12 @@ class Params {
     @RuntimeParam
     int use_kdtree_cutout_sphere_thrashold = 150
 
+    /**
+     * Used by csv_file_atom_feature.
+     */
+    @RuntimeParam
+    List<String> feat_csv_directories = [];
+
 //===========================================================================================================//
 
     /**
@@ -1043,6 +1067,15 @@ class Params {
      */
     double getSasCutoffDist() {
         solvent_radius + surface_additional_cutoff
+    }
+
+    /**
+     * Derive point labeling from ligands or from labeled residues.
+     *
+     * @see this.ligand_derived_point_labeling
+     */
+    boolean derivePointLabelingFromLigands() {
+        !predict_residues || ligand_derived_point_labeling || identify_peptides_by_labeling
     }
 
 //===========================================================================================================//
@@ -1110,8 +1143,10 @@ class Params {
         String pname = propertyName
         Object me = this
         Object pv = me."$pname"
+
+        // TODO assign based on real property type not the type of property value bc. it may be null
         
-        if (pv == null) {
+        if (value == null || pv == null) {
             me."$pname" = value
         } else if (pv instanceof String) {
             String v = (String) value

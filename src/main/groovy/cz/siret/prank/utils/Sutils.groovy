@@ -5,6 +5,7 @@ import com.google.common.base.Splitter
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import groovy.transform.CompileStatic
+import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.SystemUtils
 import org.apache.commons.lang3.builder.ToStringBuilder
 import org.apache.commons.lang3.builder.ToStringStyle
@@ -64,6 +65,11 @@ class Sutils {
         Splitter.on(splitter).omitEmptyStrings().trimResults().split(str).toList()
     }
 
+    static List<String> splitKeepEmpty(String str, String splitter) {
+        Splitter.on(splitter).trimResults().split(str).toList()
+    }
+
+
     static List<String> splitOnWhitespace(String str) {
         Splitter.on(CharMatcher.whitespace()).omitEmptyStrings().trimResults().split(str).toList()
     }
@@ -78,7 +84,7 @@ class Sutils {
      * @return
      */
     static List<String> parseList(String liststr) {
-        if (liststr==null || liststr=='()' || liststr=='[]' ) {
+        if (StringUtils.isBlank(liststr) || liststr=='()' || liststr=='[]' ) {
             return Collections.emptyList()
         }
         assert liststr.length()>=2 : "invalid list string: '$liststr'"
@@ -91,6 +97,31 @@ class Sutils {
         liststr = liststr.substring(1, liststr.length()-1) // list is in parentheses "(...)"
 
         return split(liststr, splitter)
+    }
+
+    static String partBefore(String str, String sub) {
+        if (str==null) {
+            return null
+        }
+        int split = str.indexOf(sub)
+        if (split < 0) {
+            return str
+        } else {
+            return str.substring(0, split)
+        }
+    }
+
+    static String partBetween(String str, String left, String right) {
+        if (str==null || left==null || right==null) {
+            return str
+        }
+        int li = str.indexOf(left)
+        int ri = str.lastIndexOf(right)
+
+        if (li<0) li=0
+        if (ri<0) ri=str.length()
+        
+        return str.substring(li+left.length(), ri)
     }
 
 }

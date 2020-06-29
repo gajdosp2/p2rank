@@ -41,7 +41,7 @@ abstract class PredictionLoader implements Parametrized {
         PredictionPair res = new PredictionPair()
         res.name = protf.name
 
-        if (loaderParams.load_only_specified_chains) {
+        if (itemContext.item.hasSpecifiedChaids()) {
             res.protein = Protein.loadReduced(queryProteinFile, loaderParams, itemContext.item.getChains())
         } else {
             res.protein = Protein.load(queryProteinFile, loaderParams)
@@ -67,16 +67,16 @@ abstract class PredictionLoader implements Parametrized {
 
     private loadPeptidesFromLabeling(Protein prot, ProcessedItemContext ctx) {
         log.info 'loading peptides for {}', prot.name
-        if (!ctx.dataset.hasResidueLabeling()) {
+        if (!ctx.dataset.hasExplicitResidueLabeling()) {
             throw new PrankException("No labeling provided for identify_peptides_by_labeling!")
         }
-        BinaryLabeling labeling = ctx.dataset.binaryResidueLabeler.getBinaryLabeling(prot.residues, prot)
+        BinaryLabeling labeling = ctx.dataset.explicitBinaryResidueLabeler.getBinaryLabeling(prot.residues, prot)
 
         for (Chain ch in prot.fullStructure.chains) {
             ResidueChain rc = Struct.toResidueChain(ch)
-            log.info 'checking chain {} (len:{})', ch.chainID, rc.length
+            log.info 'checking chain {} (len:{})', rc.authorId, rc.length
 
-            if (ch.chainID in ctx.item.chains) {
+            if (rc.authorId in ctx.item.chains) {
                 log.info 'is among selected chains in the dataset, skipping'
                 continue
             }
@@ -89,9 +89,9 @@ abstract class PredictionLoader implements Parametrized {
                 prot.structure.addChain(ch)
                 prot.peptides.add(rc)
                 prot.ligands.add new Ligand(Atoms.allFromChain(ch), prot)
-                log.info 'adding bindng peptide {}', rc.id
+                log.info 'adding bindng peptide {}', rc.authorId
             } else {
-                log.info 'refused peptide {} as non binding', rc.id
+                log.info 'refused peptide {} as non binding', rc.authorId
             }
 
         }

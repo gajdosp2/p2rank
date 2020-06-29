@@ -5,6 +5,7 @@ import cz.siret.prank.domain.AA
 import cz.siret.prank.domain.Dataset
 import cz.siret.prank.domain.Residue
 import cz.siret.prank.domain.labeling.LabeledResidue
+import cz.siret.prank.domain.labeling.ResidueLabeler
 import cz.siret.prank.domain.labeling.ResidueLabeling
 import cz.siret.prank.domain.loaders.DatasetCachedLoader
 import cz.siret.prank.domain.loaders.LoaderParams
@@ -13,7 +14,6 @@ import cz.siret.prank.domain.ResidueChain
 import cz.siret.prank.domain.labeling.BinaryLabelings
 import cz.siret.prank.domain.labeling.BinaryLabeling
 import cz.siret.prank.domain.labeling.SprintLabelingLoader
-import cz.siret.prank.features.implementation.conservation.ConservationScore
 import cz.siret.prank.geom.Atoms
 import cz.siret.prank.program.Main
 import cz.siret.prank.program.PrankException
@@ -116,7 +116,7 @@ class AnalyzeRoutine extends Routine {
         StringBuffer csv = new StringBuffer("protein, pept_count, peptides\n")
         dataset.processItems { Dataset.Item item ->
             Protein p = item.protein
-            String ps = p.peptides.collect { "($it.id,$it.length)" }.join(" ")
+            String ps = p.peptides.collect { "($it.authorId,$it.length)" }.join(" ")
             csv << "$p.name, ${p.peptides.size()}, $ps\n"
         }
         writeFile "$outdir/peptides.csv", csv
@@ -136,7 +136,7 @@ class AnalyzeRoutine extends Routine {
             int nchains = p.residueChains.size()
             String rows = ""
             p.residueChains.each {
-                String chainId = it.id
+                String chainId = it.authorId
                 int nres = it.length
                 String chars = it.codeCharString
                 rows += "${item.label}, $nchains, $chainId, $nres, $chars \n"
@@ -150,7 +150,7 @@ class AnalyzeRoutine extends Routine {
      * Statistics about binary residue labeling + visualizations
      */
     void cmdLabeledResidues() {
-        assert dataset.hasResidueLabeling()
+        assert dataset.hasExplicitResidueLabeling()
         LoaderParams.ignoreLigandsSwitch = true
 
         def labeler = dataset.binaryResidueLabeler
@@ -167,7 +167,7 @@ class AnalyzeRoutine extends Routine {
             def s = BinaryLabelings.getStats(labeling)
 
             int nchains = p.residueChains.size()
-            String chainIds = p.residueChains.collect { it.id }.join(" ")
+            String chainIds = p.residueChains.collect { it.authorId }.join(" ")
             int nres = p.residues.size()
             int nlabres = s.total
             csv << "${item.label}, $nchains, $chainIds, $nres, $nlabres, ${s.positives}, ${s.negatives}, ${s.unlabeled}\n"
@@ -219,7 +219,7 @@ class AnalyzeRoutine extends Routine {
     }
 
     /**
-     * Compare chain strings in strcture with those defined in sprint labeling file
+     * Compare chain strings in structure with those defined in sprint labeling file
      */
     private void printSprintChains(SprintLabelingLoader loader) {
         StringBuffer csv = new StringBuffer("chain_code, source, length, residue_string\n")
@@ -262,11 +262,13 @@ class AnalyzeRoutine extends Routine {
         writeFile "$outdir/sprint_chains.csv", csv
     }
 
+    /**
+     * calculate AA propensities of exposed residues
+     * i.e. propensity of being labeled as 1 by binary labeling
+     * which is either explicitly defined by dataset or derived from ligands
+     */
     private void cmdAaPropensities() {
-        assert dataset.hasResidueLabeling()
-        LoaderParams.ignoreLigandsSwitch = true
-
-        def labeler = dataset.binaryResidueLabeler
+        ResidueLabeler<Boolean> labeler = dataset.binaryResidueLabeler
 
         List<BinCounter<AA>> counters = Collections.synchronizedList(new ArrayList<>())
 
@@ -296,9 +298,7 @@ class AnalyzeRoutine extends Routine {
      * ordering dependent sequence duplets (only starting from exposed residues)
      */
     private void cmdAaSurfSeqDuplets() {
-        assert dataset.hasResidueLabeling()
-        LoaderParams.ignoreLigandsSwitch = true
-        def labeler = dataset.binaryResidueLabeler
+        ResidueLabeler<Boolean> labeler = dataset.binaryResidueLabeler
 
         List<BinCounter<String>> counters = Collections.synchronizedList(new ArrayList<>())
 
@@ -321,16 +321,14 @@ class AnalyzeRoutine extends Routine {
             counters.add(counter)
         }
 
-        savePropensities("$outdir/aa_surf_seq_duplet_propensities.csv", BinCounter.join(counters))
+        savePropensities("$outdir/duplets.csv", BinCounter.join(counters))
     }
 
     /**
      * sequence triplets (only from exposed residues)
      */
     private void cmdAaSurfSeqTriplets() {
-        assert dataset.hasResidueLabeling()
-        LoaderParams.ignoreLigandsSwitch = true
-        def labeler = dataset.binaryResidueLabeler
+        ResidueLabeler<Boolean> labeler = dataset.binaryResidueLabeler
 
         List<BinCounter<String>> counters = Collections.synchronizedList(new ArrayList<>())
 
@@ -348,13 +346,13 @@ class AnalyzeRoutine extends Routine {
             counters.add(counter)
         }
 
-        savePropensities("$outdir/aa_surf_seq_triplet_propensities.csv", BinCounter.join(counters))
+        savePropensities("$outdir/triplets.csv", BinCounter.join(counters))
     }
 
 
 
     private static void savePropensities(String fname, BinCounter counter) {
-        StringBuilder csv = new StringBuilder("key, pos_ratio, pos_ratio^2, count, pos, neg\n")
+        StringBuilder csv = new StringBuilder("key, propensity, propensity^2, count, pos, neg\n")
         counter.table.keySet().toSorted().each {
             def bin = counter.get(it)
             double r = bin.posRatio

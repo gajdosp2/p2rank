@@ -21,16 +21,18 @@ import static cz.siret.prank.utils.Futils.mkdirs
 class GridOptimizer extends ParamLooper {
 
     List<ListParam> listParams
+    List<String> gridVariablesNames
 
 
     GridOptimizer(String outdir, List<ListParam> listParams) {
         super(outdir)
         this.listParams = listParams
+        this.gridVariablesNames = listParams*.name
     }
 
     /**
-     * Iterate through al steps running closue.
-     * Step is a particular assignment of flexible variables, (e.g. "prram1=val1 param2=val2")
+     * Iterate through al steps running closure.
+     * Step is a particular assignment of flexible variables, (e.g. "param1=val1 param2=val2")
      * @param closure takes outdir as param
      *
      * TODO: merge with code in Experiments, there is no point in separation with closure
@@ -74,21 +76,32 @@ class GridOptimizer extends ParamLooper {
     }
 
     private makePlots() {
-        write "generating R plots..."
-        mkdirs(plotsDir)
-        if (listParams.size()==1) {
-            make1DPlots()
-        } else if (listParams.size()==2) {
-            make2DPlots()
+        if (listParams.size()==1 || listParams.size()==2) {
+            def timer = startTimer()
+            write "generating R plots..."
+            mkdirs(plotsDir)
+            if (listParams.size()==1) {
+                make1DPlots()
+            } else if (listParams.size()==2) {
+                make2DPlots()
+            }
+            logTime "generating plots finished in $timer.formatted"
         }
     }
 
-    private int getRThreads() {
+    private int getNumRThreads() {
         Math.min(params.threads, params.r_threads)
     }
 
+    boolean isGridVariable(String name) {
+        gridVariablesNames.contains(name)
+    }
+
     boolean plotVariable(String name) {
-        if (name.startsWith('_stddev_')) {
+        if (isGridVariable(name)) {
+            return false
+        }
+        if (!params.r_plot_stddevs && name.startsWith('_stddev_')) {
             return false
         }
         return true
@@ -97,7 +110,7 @@ class GridOptimizer extends ParamLooper {
     @CompileDynamic
     private make2DPlots() {
         def vars = tables2D.keySet().findAll { plotVariable(it) }.asList()
-        GParsPool.withPool(RThreads) {
+        GParsPool.withPool(numRThreads) {
             vars.eachParallel { String key ->
                 String value = tables2D.get(key)
                 String label = key
@@ -112,7 +125,7 @@ class GridOptimizer extends ParamLooper {
     private make1DPlots() {
         def plotter = new RPlotter(statsTableFile, plotsDir)
         def vars = plotter.header.findAll { plotVariable(it) }.asList()
-        plotter.plot1DVariables(vars, RThreads)
+        plotter.plot1DVariables(vars, numRThreads)
     }
 
     private make2DTable(String statName) {

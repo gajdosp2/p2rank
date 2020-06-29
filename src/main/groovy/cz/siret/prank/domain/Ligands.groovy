@@ -4,6 +4,7 @@ import cz.siret.prank.domain.loaders.LoaderParams
 import cz.siret.prank.geom.Atoms
 import cz.siret.prank.geom.Struct
 import cz.siret.prank.program.params.Parametrized
+import cz.siret.prank.utils.Writable
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import org.biojava.nbio.structure.Atom
@@ -14,25 +15,23 @@ import org.biojava.nbio.structure.Group
  */
 @Slf4j
 @CompileStatic
-class Ligands implements Parametrized {
+class Ligands implements Parametrized, Writable {
 
-    /* ligands counted in predictions */
+    /* ligands that are considered during training and evaluation, other ligands are ignored */
     List<Ligand> relevantLigands = new ArrayList<>()
 
-    /* too small ligands */
+    /* ligands that are ignored because they are too small */
     List<Ligand> smallLigands = new ArrayList<>()
 
-    /* usually cofactors and biologcally unrelevant ligands */
+    /* usually cofactors and biologically not relevant ligands */
     List<Ligand> ignoredLigands = new ArrayList<>()
 
-    /* ligands(hetgroups) too distant from protein surface */
+    /* ligands(hetgroups) that are too distant from the protein surface */
     List<Ligand> distantLigands = new ArrayList<>()
 
 //===========================================================================================================//
 
     public Ligands loadForProtein(Protein protein, LoaderParams loaderParams, String pdbFileName) {
-
-        List<Group> ligandGroups = Struct.getLigandGroups(protein.structure)
 
         if (loaderParams.ligandsSeparatedByTER) {
             // ligands are separated by TER lines in specific datasets (CHEN11)
@@ -42,6 +41,12 @@ class Ligands implements Parametrized {
             relevantLigands = ligands
 
         } else {
+            List<Group> ligandGroups = Struct.getLigandGroups(protein)
+
+            if (loaderParams.relevantLigandsDefined) {
+                log.info "Relevant ligands are explicitly defined in the dataset: " + loaderParams.relevantLigandDefinitions
+            }
+
             List<Group> relevantGroups = ligandGroups.findAll { isRelevantLigGroup(it, loaderParams) }
             List<Group> ignoredGroups = ligandGroups.findAll { ! isRelevantLigGroup(it, loaderParams) }
 
@@ -59,6 +64,8 @@ class Ligands implements Parametrized {
             ignoredLigands = makeLigands(ignoredAtomGroups, protein)
         }
 
+        log.info "Loaded ${relevantLigands.size()} relevant ligands: " + (relevantLigands*.name)
+
         sortLigands relevantLigands
         sortLigands ignoredLigands
         sortLigands smallLigands
@@ -69,7 +76,12 @@ class Ligands implements Parametrized {
 
     private static boolean isRelevantLigGroup(Group group, LoaderParams loaderParams) {
         if (loaderParams.relevantLigandsDefined) {
-            return loaderParams.relevantLigandNames.contains(group.PDBName)
+            for (Dataset.LigandDefinition ligDef : loaderParams.relevantLigandDefinitions) {
+                if (ligDef.matchesGroup(group)) {
+                    return true
+                }
+            }
+            return false
         } else {
             return ! loaderParams.ignoredHetGroups.contains(group.PDBName)
         }

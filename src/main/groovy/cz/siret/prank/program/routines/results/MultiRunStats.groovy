@@ -1,18 +1,20 @@
 package cz.siret.prank.program.routines.results
 
 import cz.siret.prank.utils.StatSample
+import groovy.transform.CompileStatic
 
 import static cz.siret.prank.utils.StatSample.newStatSample
 
 /**
  * Stats table for multiple runs
  */
+@CompileStatic
 class MultiRunStats {
 
     List<String> names
     List<Map<String, Double>> statsForRuns
 
-    int n
+    int nRuns
     Map<String, Double> mean           = new HashMap<>()
     Map<String, Double> stddev          = new HashMap<>()
     Map<String, Double> relativeStddev  = new HashMap<>()
@@ -21,7 +23,7 @@ class MultiRunStats {
         this.names = names
         this.statsForRuns = statsForRuns
 
-        n = statsForRuns.size()
+        nRuns = statsForRuns.size()
         aggregate()
     }
 
@@ -42,13 +44,13 @@ class MultiRunStats {
         sb << fs('MEAN') << ', '
         sb << fs('STDDEV') << ', '
         sb << fs('REL_STDDEV[%]') << ', '
-        sb << (1..n).collect{ fs "run_$it" }.join(', ') << '\n'
+        sb << (1..nRuns).collect{ fs "run_$it" }.join(', ') << '\n'
 
         for (String stat : names) {
             sb << fs(stat) << ', '
             sb << fmt(mean[stat]) << ', '
             sb << fmt(stddev[stat]) << ', '
-            sb << fmt(mean[stat]) << ', '
+            sb << fmt(relativeStddev[stat]) << ', '
             sb << statsForRuns.collect{ fmt(it[stat]) }.join(', ') << '\n'
         }
 

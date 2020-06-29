@@ -266,7 +266,7 @@ class ClassifierStats implements Parametrized, Writable {
             div TN , (TN + FP)
         }
 
-        /** accuraccy */
+        /** accuracy */
         double getACC() {
             div( (TP + TN) , count )
         }
@@ -320,7 +320,7 @@ class ClassifierStats implements Parametrized, Writable {
             div FP , (TP + FP)
         }
 
-        /** false ommision rate */
+        /** false omission rate */
         double getFOR() {
             div FN , (FN + TN)
         }
@@ -446,7 +446,7 @@ class ClassifierStats implements Parametrized, Writable {
         return new DecimalFormat("#.####").format(x)
     }
 
-    private String rel(double x) {
+    private static String relative(double x, int count) {
         return formatPercent((double)x/count)
     }
 
@@ -454,14 +454,14 @@ class ClassifierStats implements Parametrized, Writable {
     //@CompileStatic
     String toCSV(String classifierLabel) {
 
-        Metrics s = metrics
+        Metrics m = metrics
 
-        double P = s.p      // precision / positive predictive value
-        double R = s.r       // recall / sensitivity / true positive rate
+        double P = m.p      // precision / positive predictive value
+        double R = m.r       // recall / sensitivity / true positive rate
 
         StringBuilder sb = new StringBuilder()
 
-        metrics.with {
+        m.with {
             sb << "classifier: ${classifierLabel}\n"
             sb << "\n"
             sb << ",TN   , FP, (spc)\n"
@@ -475,8 +475,8 @@ class ClassifierStats implements Parametrized, Writable {
             sb << "       , ${formatPercent(NPV)},  ${formatPercent(P)}\n"
             sb << "\n"
             sb << "%:\n"
-            sb << ", ${rel(TN)}, ${rel(FP)}\n"
-            sb << ", ${rel(FN)}, ${rel(TP)}\n"
+            sb << ", ${relative(TN, count as int)}, ${relative(FP, count as int)}\n"
+            sb << ", ${relative(FN, count as int)}, ${relative(TP, count as int)}\n"
             sb << "\n"
             sb << "ACC:, ${format(ACC)}, accuracy\n"
             sb << "P:, ${format(P)}, precision / positive predictive value    ,,TP / (TP + FP)\n"

@@ -3,6 +3,7 @@ package cz.siret.prank.domain
 import com.google.common.base.CharMatcher
 import com.google.common.base.Splitter
 import cz.siret.prank.domain.labeling.BinaryLabeling
+import cz.siret.prank.domain.labeling.LigandBasedResidueLabeler
 import cz.siret.prank.domain.labeling.ResidueLabeler
 import cz.siret.prank.domain.loaders.pockets.ConcavityLoader
 import cz.siret.prank.domain.loaders.pockets.DeepSiteLoader
@@ -19,11 +20,19 @@ import cz.siret.prank.program.params.Parametrized
 import cz.siret.prank.utils.Futils
 import cz.siret.prank.utils.Sutils
 import groovy.util.logging.Slf4j
+import org.biojava.nbio.structure.Atom
+import org.biojava.nbio.structure.Group
 
+import javax.annotation.Nonnull
 import javax.annotation.Nullable
 import java.util.concurrent.Callable
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+
+import static cz.siret.prank.utils.Sutils.partBefore
+import static cz.siret.prank.utils.Sutils.partBetween
+import static cz.siret.prank.utils.Sutils.split
+import static org.apache.commons.lang3.StringUtils.isBlank
 
 /**
  * Dataset represents a list of items (usually proteins) to be processed by the program.
@@ -50,6 +59,7 @@ class Dataset implements Parametrized {
      */
     static final String COLUMN_PROTEIN = "protein"
     static final String COLUMN_PREDICTION = "prediction"
+    static final String COLUMN_LIGANDS = "ligands"
     static final String COLUMN_LIGAND_CODES = "ligand_codes"
     static final String COLUMN_CONSERVATION_FILES_PATTERN = "conservation_files_pattern"
     static final String COLUMN_CHAINS = "chains"
@@ -151,14 +161,6 @@ class Dataset implements Parametrized {
             int nt = ThreadPoolFactory.pool.poolSize
             log.info "processing dataset [$name] using $nt threads"
 
-//            AtomicInteger counter = new AtomicInteger(1);
-//            GParsPool.withExistingPool(ThreadPoolFactory.pool) {
-//                items.eachParallel { Item item ->
-//                    int num = counter.getAndAdd(1)
-//                    processItem(item, num, processor, result)
-//                }
-//            }
-
             ExecutorService executor = Executors.newFixedThreadPool(params.threads)
             List<Callable> tasks = new ArrayList<>()
             items.eachWithIndex { Item item, int idx ->
@@ -250,8 +252,8 @@ class Dataset implements Parametrized {
 
         if (res!=null) {
             res.loaderParams.ligandsSeparatedByTER = (attributes.get(PARAM_LIGANDS_SEPARATED_BY_TER) == "true")  // for bench11 dataset
-            res.loaderParams.relevantLigandsDefined = hasLigandCodes()
-            res.loaderParams.relevantLigandNames = item.getLigandCodes()
+            res.loaderParams.relevantLigandsDefined = hasExplicitlyDefinedLigands()
+            res.loaderParams.relevantLigandDefinitions = item.getLigandDefinitions()
             res.loaderParams.load_conservation_paths = (params.extra_features.any{s->s.contains("conservation")} || params.load_conservation)
             res.loaderParams.load_conservation = params.load_conservation
             res.loaderParams.conservation_origin = params.conservation_origin
@@ -318,8 +320,6 @@ class Dataset implements Parametrized {
         Dataset ds = new Dataset(Futils.shortName(pdbFile), Futils.dir(pdbFile))
 
         Map<String, String> columnValues = new HashMap<>()
-        //columnValues.put(COLUMN_PROTEIN, pdbFile)
-        //columnValues.put(COLUMN_PREDICTION, pdbFile)
 
         if (itemContext!=null) {
             columnValues.putAll(itemContext.datsetColumnValues)
@@ -339,16 +339,16 @@ class Dataset implements Parametrized {
     }
 
     /**
-     * @return true if valid ligands are defined explicitely in the dataset (ligand_codes column)
+     * @return true if valid ligands are defined explicitly in the dataset (i.e dataset has 'ligands' or 'ligand_codes' column)
      */
-    public boolean hasLigandCodes() {
-        return header.contains(COLUMN_LIGAND_CODES)
+    public boolean hasExplicitlyDefinedLigands() {
+        return header.contains(COLUMN_LIGANDS) || header.contains(COLUMN_LIGAND_CODES)
     }
 
     /**
-     * @return true if residue lbeling is defined a as a part of th dataset
+     * @return true if explicit residue labeling is defined a as a part of th dataset
      */
-    boolean hasResidueLabeling() {
+    boolean hasExplicitResidueLabeling() {
         return attributes.containsKey(PARAM_RESIDUE_LABELING_FORMAT)
     }
 
@@ -360,24 +360,39 @@ class Dataset implements Parametrized {
     }
 
     /**
-     * Load residue labeling based on PARAM_RESIDUE_LABELING_FORMAT and PARAM_RESIDUE_LABELING_FILE attributes defined in the dataset
+     * Loads residue labeling based on PARAM_RESIDUE_LABELING_FORMAT and PARAM_RESIDUE_LABELING_FILE attributes defined in the dataset
      */
     @Nullable
     ResidueLabeler getResidueLabeler() {
-        if (residueLabeler == null && hasResidueLabeling()) {
+        if (residueLabeler == null && hasExplicitResidueLabeling()) {
             String labelingFile = dir + "/" + attributes.get(PARAM_RESIDUE_LABELING_FILE)
             residueLabeler = ResidueLabeler.loadFromFile(attributes.get(PARAM_RESIDUE_LABELING_FORMAT), labelingFile)
         }
         return  residueLabeler
     }
 
+    /**
+     * Loads residue labeling based on PARAM_RESIDUE_LABELING_FORMAT and PARAM_RESIDUE_LABELING_FILE attributes defined in the dataset
+     */
     @Nullable
-    ResidueLabeler<Boolean> getBinaryResidueLabeler() {
+    ResidueLabeler<Boolean> getExplicitBinaryResidueLabeler() {
         ResidueLabeler labeler = getResidueLabeler()
         if (!labeler.binary) {
             throw new PrankException("Dataset residue labeling is not binary!")
         }
         return (ResidueLabeler<Boolean>) labeler
+    }
+
+    /**
+     * Returns either explicit labeler (if defined in dataset) or ligand based labeler
+     */
+    @Nullable
+    ResidueLabeler<Boolean> getBinaryResidueLabeler() {
+        if (hasExplicitResidueLabeling()) {
+            return getExplicitBinaryResidueLabeler()
+        } else {
+            return new LigandBasedResidueLabeler()
+        }
     }
 
     Dataset(String name, String dir) {
@@ -418,8 +433,9 @@ class Dataset implements Parametrized {
         Dataset dataset = new Dataset(file.name, dir)
 
         for (String line in file.readLines()) {
+            line = partBefore(line, "#") // ignore everything after comment
             line = line.trim()
-            if (line.startsWith("#") || line.isEmpty()) {
+            if (isBlank(line)) {
                 // ignore comments and empty lines
             } else if (line.startsWith("PARAM.")) {
                 String paramName = line.substring(line.indexOf('.') + 1, line.indexOf('=')).trim()
@@ -480,9 +496,106 @@ class Dataset implements Parametrized {
 //===========================================================================================================//
 
     /**
+     * Definition of the ligand in the dataset file.
+     * Examples:
+     *
+     * "MG"                    ... matches all ligand groups named MG
+     * "MG[atom_id:1234]"      ... matches ligand group named MG that has atom with PDB id = 1234
+     * "MG[group_id:C_120A]"   ... matches ligand group named MG that is in chain C and has PDB sequence number = 120A
+     * "MG[C_120A]"            ... same as previous, group_id specifier is default
+     */
+    static class LigandDefinition {
+        @Nonnull String groupName
+        @Nullable String groupId
+        @Nullable Integer atomId
+
+        private LigandDefinition(String groupName, String groupId, Integer atomId) {
+            this.groupName = groupName
+            this.groupId = groupId
+            this.atomId = atomId
+        }
+
+        boolean matchesGroup(@Nonnull Group group) {
+
+            if (groupName == group.getPDBName()) {
+                if (groupId==null && atomId==null) {
+                    return true
+                }
+                if (groupId!=null) {
+                    if (groupId == group.getResidueNumber()?.printFull()) {
+                        return true
+                    }
+                }
+                if (atomId!=null) {
+                    for (Atom a : group.atoms) {
+                        if (atomId == a.getPDBserial()) {
+                            return true
+                        }
+                    }
+                }
+            }
+
+            return false
+        }
+
+        static LigandDefinition parse(String str) {
+            String groupName = null
+            String groupId = null
+            Integer atomId = null
+
+            if (str.contains("[")) { // has specifier
+                groupName = partBefore(str, "[").trim()
+                String specifier = partBetween(str, "[", "]").trim()
+
+                if (specifier.contains(":")) {
+                    def (String stype, String svalue) = split(specifier, ":")
+                    if (stype == "group_id") {
+                        groupId = svalue
+                        checkValidGroupId(groupId, str)
+                    } else if (stype == "atom_id") {
+                        try {
+                            atomId = Integer.valueOf(svalue)
+                        } catch (Exception e) {
+                            throw new PrankException("Invalid ligand definition in the dataset file: '$str'. Invalid atom_id '$svalue'.")
+                        }
+                    } else {
+                        throw new PrankException("Invalid ligand definition in the dataset file: '$str'. Invalid specifier type '$stype'. Valid options are: [atom_id, group_id]")
+                    }
+                } else {
+                    groupId = specifier
+                    checkValidGroupId(groupId, str)
+                }
+            } else {
+                groupName = str
+            }
+
+            return new LigandDefinition(groupName, groupId, atomId)
+        }
+
+        private static checkValidGroupId(String groupId, String ligDef) {
+            if (!groupId.contains("_")) {
+                throw new PrankException("Invalid ligand definition in the dataset file: '$ligDef'. Invalid specifier '$groupId'.")
+            }
+        }
+
+        @Override
+        public String toString() {
+            String res = groupName
+            if (groupId != null) {
+                res += "[group_id:$groupId]"
+            } else if (atomId != null) {
+                res += "[atom_id:$atomId]"
+            }
+            return res
+        }
+
+    }
+
+    /**
      * Contains file names, (optionally) ligand codes and cached structures.
      */
     class Item {
+
         /**
          * origin dataset (points to original loaded dataset when dataset is split to folds)
          */
@@ -493,6 +606,7 @@ class Dataset implements Parametrized {
 
         String label
         PredictionPair cachedPair
+        @Nullable List<LigandDefinition> ligandDefinitions
 
         private Item(Dataset dataset, String proteinFile, String predictionFile, Map<String, String> columnValues) {
             this.dataset = dataset
@@ -500,6 +614,8 @@ class Dataset implements Parametrized {
             this.proteinFile = proteinFile
             this.pocketPredictionFile = predictionFile
             this.label = Futils.shortName( pocketPredictionFile ?: proteinFile )
+
+            ligandDefinitions = parseLigandsColumn(getLigandsColumnValue())
         }
 
         Prediction getPrediction() {
@@ -529,22 +645,33 @@ class Dataset implements Parametrized {
             getLoader(this).loadPredictionPair(proteinFile, pocketPredictionFile, getContext())
         }
 
-        /**
-         * explicitely specified ligand codes
-         * @return null if column is not defined
-         */
-        Set<String> getLigandCodes() {
-            if (!columnValues.containsKey(COLUMN_LIGAND_CODES)) {
-                null
-            } else {
-                Splitter.on(",").split(columnValues[COLUMN_LIGAND_CODES]).toSet()
-            }
+        @Nullable
+        private List<LigandDefinition> parseLigandsColumn(String columnValue) {
+            if (columnValue==null) return null
+            return split(columnValue, ",").collect { LigandDefinition.parse(it) }.toList()
+        }
+
+        @Nullable
+        private String getLigandsColumnValue() {
+            return columnValues.getOrDefault(COLUMN_LIGANDS, columnValues.get(COLUMN_LIGAND_CODES))
+        }
+
+        @Nullable
+        private String getChainsColumnValue() {
+            return columnValues.get(COLUMN_CHAINS)
+        }
+
+        boolean hasSpecifiedChaids() {
+            String chains = getChainsColumnValue()
+            
+            return chains!=null && chains.trim()!="*"
         }
 
         /**
-         * explicitely specified chain codes
+         * explicitly specified chain codes
          * @return null if column is not defined
          */
+        @Nullable
         List<String> getChains() {
             if (!columnValues.containsKey(COLUMN_CHAINS)) {
                 null
@@ -557,16 +684,25 @@ class Dataset implements Parametrized {
          * @return binary residue labeling that is defined in the dataset
          */
         @Nullable
-        BinaryLabeling getDefinedBinaryLabeling() {
-            if (dataset.hasResidueLabeling()) {
-                return dataset.binaryResidueLabeler.getBinaryLabeling(protein.residues, protein)
+        BinaryLabeling getExplicitBinaryLabeling() {
+            if (dataset.hasExplicitResidueLabeling()) {
+                return dataset.explicitBinaryResidueLabeler.getBinaryLabeling(protein.residues, protein)
             }
             return null
+        }
+
+        /**
+         * @return explicit (if defined in the dataset) or ligand based labeling
+         */
+        @Nullable
+        BinaryLabeling getBinaryLabeling() {
+            return dataset.binaryResidueLabeler.getBinaryLabeling(protein.residues, protein)
         }
 
         ProcessedItemContext getContext() {
             new ProcessedItemContext(this, columnValues)
         }
+        
     }
 
     Item createNewItem(String proteinFile, String predictionFile, Map<String, String> columnValues) {
@@ -601,6 +737,7 @@ class Dataset implements Parametrized {
     interface Processor {
 
         abstract void processItem(Item item)
+
     }
 
     /**
