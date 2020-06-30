@@ -27,6 +27,8 @@ import cz.siret.prank.program.params.Params
     load_only_specified_chains = true
 
     vis_generate_proteins = false
+    ligand_derived_point_labeling = false
+
 
     log_to_file = true
     delete_models = false
