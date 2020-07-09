@@ -8,6 +8,7 @@ import cz.siret.prank.program.params.Params
      */
 
     //dataset_base_dir = "../../dna_datasets/"
+    dataset_base_dir = "../p2rank-data-dna/"
 
     /**
      * all output of the prorgam will be stored in subdirectores of this directory
@@ -15,55 +16,91 @@ import cz.siret.prank.program.params.Params
      */
 
     //output_base_dir = "../../dna_datasets/"
+    output_base_dir = "../p2rank-results-dna/"
 
     predict_residues = true
     ligand_derived_point_labeling = false
 
     visualizations = false
+    vis_generate_proteins = false
 
     fail_fast = true
-    threads = Runtime.getRuntime().availableProcessors() / 2;
+    //threads = Runtime.getRuntime().availableProcessors() / 2;
 
     load_only_specified_chains = true
 
-    vis_generate_proteins = false
-    ligand_derived_point_labeling = false
-
-
+    log_level = "WARN"
     log_to_file = true
     delete_models = false
+    ploop_delete_runs = false
+    stats_collect_predictions = true // to enable AUC and AUPRC metrics
 
+    selected_stats = ['_blank',
+                  'P',
+                  'R',
+                  'MCC',
+                  'AUC',
+                  'AUPRC',
+                  'F1',
+                  'TPX',
+                  'point_P',
+                  'point_R',
+                  'point_MCC',
+                  'point_AUC',
+                  'point_AUPRC',
+                  'point_F1',
+                  'point_TPX',
+                  'TIME_MINUTES']
 
-    classifier="FasterForest"
-    rf_trees = 10
-    rf_bagsize = 50
+    // Classifier
+
+    classifier="FasterForest2"
+    rf_trees = 20
+    rf_bagsize = 55
     rf_depth = 10
 
-    cache_datasets = false
+
+    cache_datasets = true
     clear_sec_caches = false
     clear_prim_caches = false
 
+    // General feature extraction
+
+    average_feat_vectors = true
+    avg_weighted = true
+    atom_table_feat_keep_sgn = true
+    solvent_radius = 1.8
+    surface_additional_cutoff = 2.2   // should be equal to (residue-labeling-threshold - solvent_radius), where residue-labeling-threshold is 4.0, 4.5, 6.0 etc.
+
+    // Training
+
+    balance_class_weights = true
+    target_class_weight_ratio = 0.2160
+
+    // Prediction
+
+    residue_score_extra_dist = 1.9806
+    residue_score_threshold = 0.4857
+    residue_score_sum_to_avg = 0
+    pred_point_threshold = 0.5
+    point_score_pow = 5.2717
+
+    // Features
 
     residue_table_features = ["RAx"]
     atom_table_features = ["atomicHydrophobicity"]
     extra_features = ["chem","volsite","bfactor","protrusion","pmass","cr1pos","ss_atomic","ss_sas","ss_cloud"]
 
-    log_level = "WARN"
+    // Feature params
 
-    selected_stats = ['_blank',
-                      'MCC',
-                      'F1',
-                      'AUC',
-                      'AUPRC',
-                      'TPX',
-                      'point_MCC',
-                      'point_F1',
-                      'point_TPX',
-                      'point_AUC',
-                      'point_AUPRC',
-                      'TIME_MINUTES']
+    neighbourhood_radius = 10
+    protrusion_radius = 13
+    feat_pmass_radius = 7
+    ss_cloud_radius = 6
 
 
-    stats_collect_predictions = true // to enable AUC and AUPRC metrics
+
+
+
 
 }

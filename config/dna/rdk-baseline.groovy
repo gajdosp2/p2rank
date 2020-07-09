@@ -53,31 +53,31 @@ import cz.siret.prank.program.params.Params
                   'point_TPX',
                   'TIME_MINUTES']
 
-    // General feature extraction 
-    
+    // General feature extraction
+
     average_feat_vectors = true
     avg_weighted = true
     atom_table_feat_keep_sgn = true
     solvent_radius = 1.8
     surface_additional_cutoff = 2.2   // should be equal to (residue-labeling-threshold - solvent_radius), where residue-labeling-threshold is 4.0, 4.5, 6.0 etc.
 
-    // Training 
+    // Training
 
     balance_class_weights = true
     target_class_weight_ratio = 0.2160
     //subsample = true
     //target_class_ratio = 1
 
-    // Prediction 
+    // Prediction
 
     residue_score_extra_dist = 1.9806
     residue_score_threshold = 0.4857
-    residue_score_sum_to_avg = 0    
+    residue_score_sum_to_avg = 0
     pred_point_threshold = 0.5
-    point_score_pow = 5.2717       
+    point_score_pow = 5.2717
 
     // Classifier
-                  
+
     classifier="FasterForest2"
     rf_trees = 100
     rf_bagsize = 55
