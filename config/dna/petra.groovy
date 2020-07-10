@@ -25,7 +25,7 @@ import cz.siret.prank.program.params.Params
     vis_generate_proteins = false
 
     fail_fast = true
-    //threads = Runtime.getRuntime().availableProcessors() / 2;
+    threads = Runtime.getRuntime().availableProcessors() / 2;
 
     load_only_specified_chains = true
 
@@ -55,12 +55,12 @@ import cz.siret.prank.program.params.Params
     // Classifier
 
     classifier="FasterForest2"
-    rf_trees = 20
-    rf_bagsize = 55
-    rf_depth = 10
+    rf_trees = 10
+    rf_bagsize = 10
+    rf_depth = 0
 
 
-    cache_datasets = true
+    cache_datasets = false
     clear_sec_caches = false
     clear_prim_caches = false
 
@@ -74,8 +74,8 @@ import cz.siret.prank.program.params.Params
 
     // Training
 
-    balance_class_weights = true
-    target_class_weight_ratio = 0.2160
+    //balance_class_weights = true
+    //target_class_weight_ratio = 0.2160
 
     // Prediction
 
